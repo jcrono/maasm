@@ -1,32 +1,7 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2017 Javier Peralta
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
-
-"""
-maasm module entry point.
-"""
-
+#!/bin/usr/python3
 import re
 from jinja2 import Template
 import click
-
-__author__ = 'Javier Peralta'
-__email__ = 'javinachop@gmail.com'
-__version__ = '1.0.0'
-
 BIN = "28'b"
 ZEROS = '00000000'
 INS = {
@@ -115,7 +90,7 @@ def main(filename, output):
                     asm.append(BIN+INS[ins[0]]+dest+src1+src0)
                 elif ins[0] == 'STO':
                     dest = map_reg(ins[1])
-                    inmd_val = map_inmd(ins[1])
+                    inmd_val = map_inmd(ins[2])
                     asm.append(BIN+INS[ins[0]]+dest+inmd_val)
                 elif ins[0] == 'ADD':
                     dest = map_reg(ins[1])
@@ -160,3 +135,7 @@ def main(filename, output):
                 raise Exception('Invalid instruction: {}'.format(ins[0]))
 
     output.write(ROM_TEMPLATE.render(asm=asm).encode('utf-8'))
+
+
+if __name__ == '__main__':
+    main()

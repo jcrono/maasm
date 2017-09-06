@@ -59,9 +59,8 @@ def find_requirements(filename):
 
 setup(
     name='maasm',
-    version=find_version('maasm/__init__.py'),
-    package_dir={'': 'maasm'},
-    packages=find_packages('maasm'),
+    version='1.0.0',
+    py_modules=['maasm'],
     entry_points ='''
     [console_scripts]
     maasm = maasm:main
@@ -76,7 +75,7 @@ setup(
     description=(
         'Assembler for MiniAlu'
     ),
-    long_description=read('README.rst'),
+    #long_description=read('README.rst'),
     url='https://maasm.readthedocs.org/',
     keywords='maasm',
 
