@@ -88,7 +88,7 @@ def main(filename, output):
                     src1 = map_reg(ins[1])
                     asm.append(BIN+INS['LED']+ZEROS+src1+ZEROS)
                 elif ins[0] == 'BLE':
-                    dest = map_reg(ins[1])
+                    dest = map_inmd(ins[1])
                     src1 = map_reg(ins[2])
                     src0 = map_reg(ins[3])
                     asm.append(BIN+INS[ins[0]]+dest+src1+src0)
