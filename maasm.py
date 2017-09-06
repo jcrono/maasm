@@ -27,6 +27,9 @@ report any bug to javinachop@gmail.com
 
 asm.py is distributed under GNU GPL see <http://www.gnu.org/licenses/>
 */
+`ifndef ROM_A
+`define ROM_A
+
 
 `timescale 1ns / 1ps
 module ROM(
@@ -45,6 +48,7 @@ module ROM(
      end
 
 endmodule
+`endif //ROM_A
 ''')
 
 
@@ -68,7 +72,7 @@ def map_inmd(val):
 def main(filename, output):
     asm = []
     text = filename.read().decode('utf-8')
-    text = re.sub(r'(?m)^ *#.*\n?', '', text).replace(' ', '').strip().splitlines()
+    text = re.sub(r'(?m)^ *#.*\n?', '', text).replace(' ', '').replace('\t', '').splitlines()
     text = [line for line in text if line.strip() != '']
     for i in range(len(text)):
         match = re.match('(\w*):', text[i])
