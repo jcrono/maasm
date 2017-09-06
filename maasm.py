@@ -108,7 +108,7 @@ def main(filename, output):
                 elif ins[0] == 'IMUL':
                     src1 = map_reg(ins[1])
                     src0 = map_reg(ins[2])
-                    asm.append(BIN+INS[ins[0]]+dest+src1+src0)
+                    asm.append(BIN+INS[ins[0]]+ZEROS+src1+src0)
                 elif ins[0] == 'IMUL_4':
                     src1 = map_reg(ins[1])
                     src0 = map_reg(ins[2])

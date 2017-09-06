@@ -59,7 +59,7 @@ def find_requirements(filename):
 
 setup(
     name='maasm',
-    version='1.0.1',
+    version='1.0.2',
     py_modules=['maasm'],
     entry_points ='''
     [console_scripts]
