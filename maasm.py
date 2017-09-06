@@ -49,7 +49,11 @@ endmodule
 
 
 def map_reg(reg):
-    return '{0:08b}'.format(int(reg.split('R', 1)[1]))
+    try:
+
+        return '{0:08b}'.format(int(reg.split('R', 1)[1]))
+    except:
+        raise Exception('Error parsing reg {}'.format(reg))
 
 
 def map_inmd(val):
@@ -128,7 +132,7 @@ def main(filename, output):
                     dest = map_reg(ins[1])
                     asm.append(BIN+INS[ins[0]]+dest+ZEROS+ZEROS)
             else:
-                raise Exception('Invalid instruction: {}'.format(ins[0]))
+                raise Exception('Invalid instruction: {}, on line {}'.format(ins[0]), line)
 
     output.write(ROM_TEMPLATE.render(asm=asm).encode('utf-8'))
 
