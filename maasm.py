@@ -64,7 +64,7 @@ def map_inmd(val):
 def main(filename, output):
     asm = []
     text = filename.read().decode('utf-8')
-    text = re.sub(r'(?m)^ *#.*\n?', '', text).replace(' ', '').splitlines()
+    text = re.sub(r'(?m)^ *#.*\n?', '', text).replace(' ', '').strip().splitlines()
     text = [line for line in text if line.strip() != '']
     for i in range(len(text)):
         match = re.match('(\w*):', text[i])
