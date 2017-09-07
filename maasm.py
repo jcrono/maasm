@@ -1,21 +1,14 @@
-#!/bin/usr/python3
+#!/usr/bin/python3
 import re
 from jinja2 import Template
 import click
-INS = {
+DEFAULT_INS = {
     'NOP': {'op': 0, 'num': 0, 'args': ['zero', 'zero', 'zero']},
     'LED': {'op': 2,  'num': 1, 'args': ['zero', 'arg', 'zero']},
     'BLE': {'op': 3, 'num': 3, 'args': ['arg', 'arg', 'arg']},
     'STO': {'op': 4, 'num': 2, 'args': ['arg', 'value']},
     'ADD': {'op': 5, 'num': 3, 'args': ['arg', 'arg', 'arg']},
     'JMP': {'op': 6, 'num': 1, 'args': ['value', 'zero', 'zero']},
-    'SUB': {'op': 7, 'num': 3, 'args': ['arg', 'arg', 'arg']},
-    'IMUL': {'op': 8, 'num': 2, 'args': ['zero' 'arg', 'arg']},
-    'IMUL_4': {'op': 9, 'num': 2, 'args': ['zero', 'arg', 'arg']},
-    'IMUL_LUT': {'op': 10, 'num': 2, 'args': ['zero', 'arg', 'arg']},
-    'IMUL_GEN': {'op': 11, 'num': 2, 'args': ['zero', 'arg', 'arg']},
-    'MOVE_UPP': {'op': 12, 'num': 1, 'args': ['arg', 'zero', 'zero']},
-    'MOVE_DOWN': {'op': 13, 'num': 1, 'args': ['arg', 'zero', 'zero']}
 }
 TAGS = {}
 CONSTANTS = {}
@@ -58,7 +51,7 @@ def map_args(arg):
         elif arg in TAGS:
             return '{0:08b}'.format(TAGS[arg])
         elif arg in CONSTANTS:
-            return '{0:08b}'.format(CONSTANTS[arg])
+            return '{0:016b}'.format(CONSTANTS[arg])
         else:
             return '{0:016b}'.format(int(arg))
     except:
@@ -67,7 +60,23 @@ def map_args(arg):
 @click.command()
 @click.argument('filename', type=click.File('rb'))
 @click.argument('output', type=click.File('wb'))
-def main(filename, output):
+@click.option(
+    '--asm-dict', default=None, type=click.File('rb'),
+    help='File containing a python dictionary with the asm instructions set')
+def main(filename, output, asm_dict):
+    ''' Transforms from MiniAlu assembly to a verilog ROM module
+
+    FILENAME: Input asm file
+
+    OUTPUT: Output verilog ROM module file
+'''
+
+    if asm_dict:
+        import ast
+        asm_tree = ast.literal_eval(asm_dict.read().decode('utf-8'))
+    else:
+        asm_tree = DEFAULT_INS
+
     asm = []
     text = filename.read().decode('utf-8')
     text = re.sub(r'(?m)^ *#.*\n?', '', text) \
@@ -79,7 +88,13 @@ def main(filename, output):
             TAGS[match.group(1)] = i-len(TAGS)
         elif re.match(r'\w*=\d*', text[i]):
             line = text[i].split('=')
-            CONSTANTS[line[0]] = line[1]
+            try:
+                CONSTANTS[line[0]] = int(line[1])
+            except:
+                raise Exception(
+                    'Constant must be'
+                    ' a intger, experssion {}'.format(text[i])
+                )
 
     for line in text:
         ins = line.split('#', 1)[0]
@@ -87,15 +102,15 @@ def main(filename, output):
             ins = ins.split(',')
             if re.match(r'(\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
                 continue
-            elif ins[0] in INS:
-                if len(ins) == (INS[ins[0]]['num'] + 1):
+            elif ins[0] in asm_tree:
+                if len(ins) == (asm_tree[ins[0]]['num'] + 1):
 
                     asm_line = [
                         "28'b",
-                        '{0:04b}'.format(INS[ins[0]]['op']),
+                        '{0:04b}'.format(asm_tree[ins[0]]['op']),
                     ]
                     iter_args = iter(ins[1:])
-                    for arg in INS[ins[0]]['args']:
+                    for arg in asm_tree[ins[0]]['args']:
                         if arg == 'zero':
                             asm_line.append('00000000')
                         else:
