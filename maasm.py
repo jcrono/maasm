@@ -2,30 +2,29 @@
 import re
 from jinja2 import Template
 import click
-BIN = "28'b"
-ZEROS = '00000000'
 INS = {
-    'NOP': "0",
-    'LED': "0010",
-    'BLE': "0011",
-    'STO': "0100",
-    'ADD': "0101",
-    'JMP': "0110",
-    'SUB': "0111",
-    'IMUL': "1000",
-    'IMUL_4': "1001",
-    'IMUL_LUT': "1010",
-    'IMUL_GEN': "1011",
-    'MOVE_UPP': "1100",
-    'MOVE_DOWN': "1101"
+    'NOP': {'op': 0, 'num': 0, 'args': ['zero', 'zero', 'zero']},
+    'LED': {'op': 2,  'num': 1, 'args': ['zero', 'arg', 'zero']},
+    'BLE': {'op': 3, 'num': 3, 'args': ['arg', 'arg', 'arg']},
+    'STO': {'op': 4, 'num': 2, 'args': ['arg', 'value']},
+    'ADD': {'op': 5, 'num': 3, 'args': ['arg', 'arg', 'arg']},
+    'JMP': {'op': 6, 'num': 1, 'args': ['value', 'zero', 'zero']},
+    'SUB': {'op': 7, 'num': 3, 'args': ['arg', 'arg', 'arg']},
+    'IMUL': {'op': 8, 'num': 2, 'args': ['zero' 'arg', 'arg']},
+    'IMUL_4': {'op': 9, 'num': 2, 'args': ['zero', 'arg', 'arg']},
+    'IMUL_LUT': {'op': 10, 'num': 2, 'args': ['zero', 'arg', 'arg']},
+    'IMUL_GEN': {'op': 11, 'num': 2, 'args': ['zero', 'arg', 'arg']},
+    'MOVE_UPP': {'op': 12, 'num': 1, 'args': ['arg', 'zero', 'zero']},
+    'MOVE_DOWN': {'op': 13, 'num': 1, 'args': ['arg', 'zero', 'zero']}
 }
 TAGS = {}
+CONSTANTS = {}
 
 ROM_TEMPLATE = Template('''/*
-This module was out generated using asm.py, MiniAlu's assembler
+This module was out generated using maasm, MiniAlu's assembler
 report any bug to javinachop@gmail.com
 
-asm.py is distributed under GNU GPL see <http://www.gnu.org/licenses/>
+maasm is distributed under GNU GPL see <http://www.gnu.org/licenses/>
 */
 `ifndef ROM_A
 `define ROM_A
@@ -52,19 +51,18 @@ endmodule
 ''')
 
 
-def map_reg(reg):
+def map_args(arg):
     try:
-
-        return '{0:08b}'.format(int(reg.split('R', 1)[1]))
+        if re.match('R\d{1,2}', arg):
+            return '{0:08b}'.format(int(arg.split('R', 1)[1]))
+        elif arg in TAGS:
+            return '{0:08b}'.format(TAGS[arg])
+        elif arg in CONSTANTS:
+            return '{0:08b}'.format(CONSTANTS[arg])
+        else:
+            return '{0:016b}'.format(int(arg))
     except:
-        raise Exception('Error parsing reg {}'.format(reg))
-
-
-def map_inmd(val):
-    if val in TAGS:
-        return '{0:08b}'.format(TAGS[val])
-    else:
-        return '{0:016b}'.format(int(val))
+        raise Exception('Invalid argument {}'.format(arg))
 
 @click.command()
 @click.argument('filename', type=click.File('rb'))
@@ -72,71 +70,55 @@ def map_inmd(val):
 def main(filename, output):
     asm = []
     text = filename.read().decode('utf-8')
-    text = re.sub(r'(?m)^ *#.*\n?', '', text).replace(' ', '').replace('\t', '').splitlines()
+    text = re.sub(r'(?m)^ *#.*\n?', '', text) \
+             .replace(' ', '').replace('\t', '').splitlines()
     text = [line for line in text if line.strip() != '']
     for i in range(len(text)):
         match = re.match('(\w*):', text[i])
         if match:
             TAGS[match.group(1)] = i-len(TAGS)
+        elif re.match(r'\w*=\d*', text[i]):
+            line = text[i].split('=')
+            CONSTANTS[line[0]] = line[1]
 
     for line in text:
         ins = line.split('#', 1)[0]
         if ins:
             ins = ins.split(',')
-            if re.match(r'(\w*):', ins[0]):
+            if re.match(r'(\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
                 continue
-            if ins[0] in INS:
-                if ins[0] == 'NOP':
-                    asm.append(BIN+INS['NOP'])
-                elif ins[0] == 'LED':
-                    src1 = map_reg(ins[1])
-                    asm.append(BIN+INS['LED']+ZEROS+src1+ZEROS)
-                elif ins[0] == 'BLE':
-                    dest = map_inmd(ins[1])
-                    src1 = map_reg(ins[2])
-                    src0 = map_reg(ins[3])
-                    asm.append(BIN+INS[ins[0]]+dest+src1+src0)
-                elif ins[0] == 'STO':
-                    dest = map_reg(ins[1])
-                    inmd_val = map_inmd(ins[2])
-                    asm.append(BIN+INS[ins[0]]+dest+inmd_val)
-                elif ins[0] == 'ADD':
-                    dest = map_reg(ins[1])
-                    src1 = map_reg(ins[2])
-                    src0 = map_reg(ins[3])
-                    asm.append(BIN+INS[ins[0]]+dest+src1+src0)
-                elif ins[0] == 'JMP':
-                    inmd_val = map_inmd(ins[1])
-                    asm.append(BIN+INS[ins[0]]+inmd_val+ZEROS+ZEROS)
-                elif ins[0] == 'SUB':
-                    dest = map_reg(ins[1])
-                    src1 = map_reg(ins[2])
-                    src0 = map_reg(ins[3])
-                    asm.append(BIN+INS[ins[0]]+dest+src1+src0)
-                elif ins[0] == 'IMUL':
-                    src1 = map_reg(ins[1])
-                    src0 = map_reg(ins[2])
-                    asm.append(BIN+INS[ins[0]]+ZEROS+src1+src0)
-                elif ins[0] == 'IMUL_4':
-                    src1 = map_reg(ins[1])
-                    src0 = map_reg(ins[2])
-                    asm.append(BIN+INS[ins[0]]+ZEROS+src1+src0)
-                elif ins[0] == 'IMUL_LUT':
-                    src1 = map_reg(ins[1])
-                    src0 = map_reg(ins[2])
-                    asm.append(BIN+INS[ins[0]]+ZEROS+src1+src0)
-                elif ins[0] == 'IMUL_GEN':
-                    src1 = map_reg(ins[1])
-                    src0 = map_reg(ins[2])
-                    asm.append(BIN+INS[ins[0]]+ZEROS+src1+src0)
-                elif ins[0] == 'MOVE_UPP':
-                    dest = map_reg(ins[1])
-                    asm.append(BIN+INS[ins[0]]+dest+ZEROS+ZEROS)
-                elif ins[0] == 'MOVE_DOWN':
-                    dest = map_reg(ins[1])
-                    asm.append(BIN+INS[ins[0]]+dest+ZEROS+ZEROS)
+            elif ins[0] in INS:
+                if len(ins) == (INS[ins[0]]['num'] + 1):
+
+                    asm_line = [
+                        "28'b",
+                        '{0:04b}'.format(INS[ins[0]]['op']),
+                    ]
+                    iter_args = iter(ins[1:])
+                    for arg in INS[ins[0]]['args']:
+                        if arg == 'zero':
+                            asm_line.append('00000000')
+                        else:
+                            try:
+                                asm_line.append(map_args(next(iter_args)))
+                            except Exception as err:
+                                raise Exception(
+                                    'Unable to parse'
+                                    ' args on instruction: {}'.format(line)
+                                ) from err
+                    asm.append(''.join(asm_line))
+
+                else:
+                    raise Exception(
+                        'Wrong number of'
+                        ' arguments on instruction {}'.format(line)
+                    )
+
             else:
-                raise Exception('Invalid instruction: {}, on line {}'.format(ins[0]), line)
+                raise Exception(
+                    'Invalid operation'
+                    ' on instruction {}'.format(line)
+                )
 
     output.write(ROM_TEMPLATE.render(asm=asm).encode('utf-8'))
 
