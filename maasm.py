@@ -85,7 +85,7 @@ def main(filename, output, asm_dict):
     for i in range(len(text)):
         match = re.match('(\w*):', text[i])
         if match:
-            TAGS[match.group(1)] = i-len(TAGS)
+            TAGS[match.group(1)] = i-len(TAGS)-len(CONSTANTS)
         elif re.match(r'\w*=\d*', text[i]):
             line = text[i].split('=')
             try:
