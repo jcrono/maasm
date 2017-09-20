@@ -43,6 +43,25 @@ endmodule
 `endif //ROM_A
 ''')
 
+def str2int(num):
+            try:
+                return int(num)
+            except:
+                pass
+            try:
+                return int(num, 2)
+            except:
+                pass
+            try:
+                return int(num, 6)
+            except:
+                pass
+            try:
+                return int(num, 8)
+            except:
+                raise Exception(
+                    'Unable to parse experssion {} to int '.format(num)
+                )
 
 def map_args(arg):
     try:
@@ -53,7 +72,7 @@ def map_args(arg):
         elif arg in CONSTANTS:
             return '{0:016b}'.format(CONSTANTS[arg])
         else:
-            return '{0:016b}'.format(int(arg))
+            return '{0:016b}'.format(str2int(arg))
     except:
         raise Exception('Invalid argument {}'.format(arg))
 
@@ -79,12 +98,12 @@ def resolve_symbols(text):
         elif re.match(r'\w*=\d*', text[i]):
             line = text[i].split('=')
             try:
-                CONSTANTS[line[0]] = int(line[1])
-            except:
+                CONSTANTS[line[0]] = str2int(line[1])
+            except Exception as err:
                 raise Exception(
-                    'Constant must be'
-                    ' a intger, expression {}'.format(text[i])
-                )
+                    'Unable to parse'
+                    ' constant expression {}'.format(text[i])
+                ) from err
 
 
 def asemble(text, asm_tree):
