@@ -31,7 +31,7 @@ module ROM(
  always @ ( iAddress )
      begin
 	case (iAddress)
-          {% for i in range(asm|length+1) %}
+          {% for i in range(asm|length) %}
            {{i}}: oInstruction = {{asm[i]}};
           {% endfor %}
 	  default:
@@ -58,7 +58,7 @@ def map_args(arg):
         raise Exception('Invalid argument {}'.format(arg))
 
 
-def expand_macro(text, macros):
+def expand_macro(text, macros_dict):
     expanded_text = list(text)
     for i in range(len(text)):
         line = text[i].split('#', 1)[0]
@@ -66,8 +66,8 @@ def expand_macro(text, macros):
             continue
         else:
             ins = line.split[',']
-        if ins[0] in macros:
-            expanded_text[i] = macros[ins[0]]['func'](ins[1:])
+        if ins[0] in macros_dict:
+            expanded_text[i] = macros_dict[ins[0]]['func'](ins[1:])
     return [item for sublist in expanded_text[i] for item in sublist]
 
 
@@ -134,32 +134,30 @@ def generate_rom(text):
     pass
 
 
-
 @click.command()
 @click.argument('filename', type=click.File('rb'))
 @click.argument('output', type=click.File('wb'))
 @click.option(
     '--asm-dict', default=None, type=click.File('rb'),
     help='File containing a python dictionary with the asm instructions set')
-
 @click.option(
     '--macros', default=None,
     help='File containing a python module with macro definitions')
-def main(filename, output, asm_dict, macro_module_path):
+def main(filename, output, asm_dict, macros):
     ''' Transforms from MiniAlu assembly to a verilog ROM module
 
     FILENAME: Input asm file
 
     OUTPUT: Output verilog ROM module file
 '''
-    if macro_module_path:
+    if macros:
         import sys
         import os.path
         from importlib import import_module
         m_path = os.path.abspath(
             os.path.expandvars(
                 os.path.expanduser(
-                    macro_module_path
+                    macros
                 )
             )
         )
@@ -167,21 +165,22 @@ def main(filename, output, asm_dict, macro_module_path):
         sys.path.insert(0, m_dir)
         m_name = os.path.basename(m_path).split('.')[0]
         macro_module = import_module(m_name)
-        macros = macro_module.init_macros()
+        macros_dict = macro_module.init_macros()
 
     if asm_dict:
         import ast
         asm_tree = ast.literal_eval(asm_dict.read().decode('utf-8'))
     else:
         asm_tree = DEFAULT_INS
-    macros = None
 
     text = filename.read().decode('utf-8')
     text = re.sub(r'(?m)^ *#.*\n?', '', text) \
              .replace(' ', '').replace('\t', '').splitlines()
     clean_text = [line for line in text if line.strip() != '']
     if macros:
-        expanded_text = expand_macro(clean_text)
+        expanded_text = expand_macro(clean_text, macros_dict)
+    else:
+        expanded_text = clean_text
     resolve_symbols(expanded_text)
     asm = asemble(expanded_text, asm_tree)
     output.write(ROM_TEMPLATE.render(asm=asm).encode('utf-8'))
