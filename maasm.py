@@ -174,7 +174,7 @@ def main(filename, output, asm_dict, macros):
         asm_tree = DEFAULT_INS
 
     text = filename.read().decode('utf-8')
-    text = re.sub(r'(?m)^ *#.*\n?', '', text) \
+    text = re.sub(r'(?m)^\s*#.*\n?', '', text) \
              .replace(' ', '').replace('\t', '').splitlines()
     clean_text = [line for line in text if line.strip() != '']
     if macros:
