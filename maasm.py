@@ -1,14 +1,43 @@
-#!/usr/bin/python3
+ #!/usr/bin/python3
 import re
 from jinja2 import Template
+from collections import OrderedDict
 import click
 DEFAULT_INS = {
-    'NOP': {'op': 0, 'num': 0, 'args': ['zero', 'zero', 'zero']},
-    'LED': {'op': 2,  'num': 1, 'args': ['zero', 'arg', 'zero']},
-    'BLE': {'op': 3, 'num': 3, 'args': ['arg', 'arg', 'arg']},
-    'STO': {'op': 4, 'num': 2, 'args': ['arg', 'value']},
-    'ADD': {'op': 5, 'num': 3, 'args': ['arg', 'arg', 'arg']},
-    'JMP': {'op': 6, 'num': 1, 'args': ['value', 'zero', 'zero']},
+    'NOP': {
+        'op': 0,
+        'num': 0,
+        'args': OrderedDict([('zero', 24)])
+    },
+    'LED': {
+        'op': 2,
+        'num': 1,
+        'args': OrderedDict([('zero', 8), ('arg',8), ('zero', 8)])
+    },
+    'BLE': {
+        'op': 3,
+        'num': 3,
+        'args': OrderedDict([('arg', 8), ('arg', 8), ('arg', 8)])
+    },
+    'STO': {
+        'op': 4,
+        'num': 2,
+        'args': OrderedDict([('arg', 8), ('value', 16)])
+    },
+    'ADD': {
+        'op': 5,
+        'num': 3,
+        'args': OrderedDict([('arg', 8), ('arg', 8), ('arg', 8)])
+    },
+    'JMP': {
+        'op': 6,
+        'num': 1,
+        'args': OrderedDict([('value', 16), ('zero', 8), ('zero', 8)])
+    },
+    '_config': {
+        'ins_len': 28,
+        'opcode_len': 4,
+    }
 }
 TAGS = {}
 CONSTANTS = {}
@@ -43,6 +72,7 @@ endmodule
 `endif //ROM_A
 ''')
 
+
 def str2int(num):
             try:
                 return int(num)
@@ -63,18 +93,31 @@ def str2int(num):
                     'Unable to parse experssion {} to int '.format(num)
                 )
 
-def map_args(arg):
-    try:
-        if re.match('R\d{1,2}', arg):
-            return '{0:08b}'.format(int(arg.split('R', 1)[1]))
-        elif arg in TAGS:
-            return '{0:08b}'.format(TAGS[arg])
+
+def map_args(kind, length, arg=None):
+    if kind == 'zero':
+        return '{{0:0{}b}}'.format(length).format(0)
+
+    elif kind == 'value':
+        if arg in TAGS:
+            return '{{0:0{}b}}'.format(length).format(TAGS[arg])
         elif arg in CONSTANTS:
-            return '{0:016b}'.format(CONSTANTS[arg])
+            return '{{0:0{}b}}'.format(length).format(CONSTANTS[arg])
+        elif re.match(r'\d', arg):
+            return '{{0:0{}b}}'.format(length).format(str2int(arg))
         else:
-            return '{0:016b}'.format(str2int(arg))
-    except:
-        raise Exception('Invalid argument {}'.format(arg))
+            raise Exception('Undefined Symbol: {}').format(arg)
+
+    elif kind == 'reg':
+        if re.match(r'R\d{1,2}', arg):
+            return '{{0:0{}b}}'.format(length).format(
+                int(arg.split('R', 1)[1])
+            )
+        else:
+            raise Exception('Malformed register expression {}'.fromat(arg))
+
+    else:
+        raise Exception('Invaild type {}').format(kind)
 
 
 def expand_macro(text, macros_dict):
@@ -91,62 +134,75 @@ def expand_macro(text, macros_dict):
 
 
 def resolve_symbols(text):
+    whitelines = len([line for line in text if line.strip() == ''])
     for i in range(len(text)):
-        match = re.match('(\w*):', text[i])
-        if match:
-            TAGS[match.group(1)] = i-len(TAGS)-len(CONSTANTS)
-        elif re.match(r'\w*=\d*', text[i]):
-            line = text[i].split('=')
+        if re.match(r'\w*=\d*(\s*#\s*\w*)', text[i]):
+            line = text[i].split('#', 1)[0].split('=')
             try:
                 CONSTANTS[line[0]] = str2int(line[1])
             except Exception as err:
                 raise Exception(
-                    'Unable to parse'
+                    '{}: Unable to parse'
                     ' constant expression {}'.format(text[i])
                 ) from err
 
+    for i in range(len(text)):
+        match = re.match('(\w*):(\s*#\s*\w*)', text[i])
+        if match:
+            TAGS[match.group(1)] = i-len(TAGS)-len(CONSTANTS)-whitelines
 
-def asemble(text, asm_tree):
-    asm = []
-    for line in text:
+
+def asemble(text, asm_def):
+    bytecode = []
+    for index, line in enumerate(text):
+        if line == '':
+            continue
+
         ins = line.split('#', 1)[0]
         if ins:
             ins = ins.split(',')
             if re.match(r'(\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
                 continue
-            elif ins[0] in asm_tree:
-                if len(ins) == (asm_tree[ins[0]]['num'] + 1):
 
-                    asm_line = [
-                        "28'b",
-                        '{0:04b}'.format(asm_tree[ins[0]]['op']),
+            elif ins[0] in asm_def:
+                if len(ins) == (asm_def[ins[0]]['num'] + 1):
+
+                    # FIXME: Make length configurable
+                    bytecode_line = [
+                        '{{0:0{}b}}'.format(
+                            asm_def['_config']['opcode_len']
+                        ).format(asm_def[ins[0]]['op']),
                     ]
                     iter_args = iter(ins[1:])
-                    for arg in asm_tree[ins[0]]['args']:
-                        if arg == 'zero':
-                            asm_line.append('00000000')
+                    for kind, length in asm_def[ins[0]]['args'].items():
+                        if kind == 'zero':
+                            bytecode_line.append(map_args(kind, length))
                         else:
                             try:
-                                asm_line.append(map_args(next(iter_args)))
+                                bytecode_line.append(
+                                    map_args(kind, length, next(iter_args))
+                                )
                             except Exception as err:
                                 raise Exception(
-                                    'Unable to parse'
-                                    ' args on instruction: {}'.format(line)
+                                    '{}: Unable to parse'
+                                    ' args on instruction: {}'.format(
+                                        index, line
+                                    )
                                 ) from err
-                    asm.append(''.join(asm_line))
+                    bytecode.append(''.join(bytecode_line))
 
                 else:
                     raise Exception(
-                        'Wrong number of'
-                        ' arguments on instruction {}'.format(line)
+                        '{}: Wrong number of'
+                        ' arguments on instruction {}'.format(index, line)
                     )
 
             else:
                 raise Exception(
-                    'Invalid operation'
+                    '{}: Invalid operation'
                     ' on instruction {}'.format(line)
                 )
-    return asm
+    return bytecode
 
 
 def generate_rom(text):
@@ -187,22 +243,25 @@ def main(filename, output, asm_dict, macros):
         macros_dict = macro_module.init_macros()
 
     if asm_dict:
-        import ast
-        asm_tree = ast.literal_eval(asm_dict.read().decode('utf-8'))
+        asm_tree = eval(asm_dict.read().decode('utf-8'))
     else:
         asm_tree = DEFAULT_INS
 
     text = filename.read().decode('utf-8')
-    text = re.sub(r'(?m)^\s*#.*\n?', '', text) \
-             .replace(' ', '').replace('\t', '').splitlines()
-    clean_text = [line for line in text if line.strip() != '']
+    text = re.sub(r'(?m)^\s*#.*\n?', '', text)
+    clean_text = re.sub(r'\s', '', text)
     if macros:
         expanded_text = expand_macro(clean_text, macros_dict)
     else:
         expanded_text = clean_text
     resolve_symbols(expanded_text)
-    asm = asemble(expanded_text, asm_tree)
-    output.write(ROM_TEMPLATE.render(asm=asm).encode('utf-8'))
+    bytecode = asemble(expanded_text, asm_tree)
+    bytecode = [
+        ''.join(
+            ["{}'b".format(asm_tree['_config']['ins_len']), line]
+        ) for line in bytecode
+    ]
+    output.write(ROM_TEMPLATE.render(asm=bytecode).encode('utf-8'))
 
 
 if __name__ == '__main__':
