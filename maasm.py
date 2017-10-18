@@ -200,7 +200,7 @@ def asemble(text, asm_def):
             else:
                 raise Exception(
                     '{}: Invalid operation'
-                    ' on instruction {}'.format(line)
+                    ' on instruction {}'.format(index, line)
                 )
     return bytecode
 
