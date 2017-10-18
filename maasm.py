@@ -136,7 +136,7 @@ def expand_macro(text, macros_dict):
 def resolve_symbols(text):
     whitelines = len([line for line in text if line.strip() == ''])
     for i in range(len(text)):
-        if re.match(r'\w*=\d*(\s*#\s*\w*)', text[i]):
+        if re.match(r'\w*=\d*(\s*#\s*\w*)?', text[i]):
             line = text[i].split('#', 1)[0].split('=')
             try:
                 CONSTANTS[line[0]] = str2int(line[1])
@@ -147,7 +147,7 @@ def resolve_symbols(text):
                 ) from err
 
     for i in range(len(text)):
-        match = re.match('(\w*):(\s*#\s*\w*)', text[i])
+        match = re.match('(\w*):(\s*#\s*\w*)?', text[i])
         if match:
             TAGS[match.group(1)] = i-len(TAGS)-len(CONSTANTS)-whitelines
 
