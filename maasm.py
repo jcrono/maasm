@@ -134,9 +134,11 @@ def expand_macro(text, macros_dict):
 
 
 def resolve_symbols(text):
-    whitelines = len([line for line in text if line.strip() == ''])
+    whitelines = 0
     for i in range(len(text)):
-        if re.match(r'\w*=\d*(\s*#\s*\w*)?', text[i]):
+        if text[i].strip() == '':
+            whitelines += 1
+        elif re.match(r'\w*=\d*(\s*#\s*\w*)?', text[i]):
             line = text[i].split('#', 1)[0].split('=')
             try:
                 CONSTANTS[line[0]] = str2int(line[1])
@@ -146,10 +148,13 @@ def resolve_symbols(text):
                     ' constant expression {}'.format(text[i])
                 ) from err
 
+    whitelines = 0
     for i in range(len(text)):
         match = re.match('(\w*):(\s*#\s*\w*)?', text[i])
         if match:
             TAGS[match.group(1)] = i-len(TAGS)-len(CONSTANTS)-whitelines
+        elif text[i].strip() == '':
+            whitelines += 1
 
 
 def asemble(text, asm_def):
