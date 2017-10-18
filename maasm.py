@@ -7,32 +7,32 @@ DEFAULT_INS = {
     'NOP': {
         'op': 0,
         'num': 0,
-        'args': OrderedDict([('zero', 24)])
+        'args': [('zero', 24)]
     },
     'LED': {
         'op': 2,
         'num': 1,
-        'args': OrderedDict([('zero', 8), ('arg',8), ('zero', 8)])
+        'args': [('zero', 8), ('arg',8), ('zero', 8)]
     },
     'BLE': {
         'op': 3,
         'num': 3,
-        'args': OrderedDict([('arg', 8), ('arg', 8), ('arg', 8)])
+        'args': [('arg', 8), ('arg', 8), ('arg', 8)]
     },
     'STO': {
         'op': 4,
         'num': 2,
-        'args': OrderedDict([('arg', 8), ('value', 16)])
+        'args': [('arg', 8), ('value', 16)]
     },
     'ADD': {
         'op': 5,
         'num': 3,
-        'args': OrderedDict([('arg', 8), ('arg', 8), ('arg', 8)])
+        'args': [('arg', 8), ('arg', 8), ('arg', 8)]
     },
     'JMP': {
         'op': 6,
         'num': 1,
-        'args': OrderedDict([('value', 16), ('zero', 8), ('zero', 8)])
+        'args': [('value', 16), ('zero', 8), ('zero', 8)]
     },
     '_config': {
         'ins_len': 28,
@@ -174,7 +174,9 @@ def asemble(text, asm_def):
                         ).format(asm_def[ins[0]]['op']),
                     ]
                     iter_args = iter(ins[1:])
-                    for kind, length in asm_def[ins[0]]['args'].items():
+                    for arg in asm_def[ins[0]]['args']:
+                        kind = arg[0]
+                        length = arg[1]
                         if kind == 'zero':
                             bytecode_line.append(map_args(kind, length))
                         else:
@@ -248,8 +250,10 @@ def main(filename, output, asm_dict, macros):
         asm_tree = DEFAULT_INS
 
     text = filename.read().decode('utf-8')
-    text = re.sub(r'(?m)^\s*#.*\n?', '', text)
-    clean_text = re.sub(r'\s', '', text)
+    text = re.sub(r'(?m)^\s*#.*\n?', '', text).splitlines()
+    clean_text = []
+    for line in text:
+        clean_text.append(re.sub(r'\s', '', line))
     if macros:
         expanded_text = expand_macro(clean_text, macros_dict)
     else:
