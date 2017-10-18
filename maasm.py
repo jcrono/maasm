@@ -54,8 +54,8 @@ maasm is distributed under GNU GPL see <http://www.gnu.org/licenses/>
 
 `timescale 1ns / 1ps
 module ROM(
-	   input wire [7:0] iAddress,
-	   output reg [27:0] oInstruction
+	   input wire [{{addr_len}}:0] iAddress,
+	   output reg [{{ins_len}}:0] oInstruction
 	   );
  always @ ( iAddress )
      begin
@@ -270,7 +270,11 @@ def main(filename, output, asm_dict, macros):
             ["{}'b".format(asm_tree['_config']['ins_len']), line]
         ) for line in bytecode
     ]
-    output.write(ROM_TEMPLATE.render(asm=bytecode).encode('utf-8'))
+    output.write(ROM_TEMPLATE.render(
+                asm=bytecode,
+                addr_len=asm_tree['_config']['addr_len']-1,
+                ins_len=asm_tree['_config']['ins_len']-1
+    ).encode('utf-8'))
 
 
 if __name__ == '__main__':
