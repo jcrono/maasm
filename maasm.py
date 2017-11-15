@@ -232,7 +232,7 @@ def asemble(text, asm_def):
 
         ins = line.split('#', 1)[0]
         if ins:
-            ins = list(filter(None, re.split('[\s,]', ins)))
+            ins = list(filter(None, re.split('(\s*)|(,\s*)', ins)))
             if re.match(r'(\$?\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
                 continue
 
