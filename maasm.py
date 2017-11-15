@@ -191,7 +191,7 @@ def expand_macro(text, macros_dict):
     expanded_text = list(text)
     for i in range(len(text)):
         line = text[i].split(COMMENT_REGEX, 1)[0]
-        if re.match(r'(\w*):', line[0]) or re.match(r'\w*=\d*', line[0]):
+        if re.match(r'(\$?\w*):', line[0]) or re.match(r'\$?\w*=\d*', line[0]):
             continue
         else:
             ins = line.split[',']
@@ -217,7 +217,7 @@ def resolve_symbols(text):
 
     whitelines = 0
     for i in range(len(text)):
-        match = re.match('(\w*):(\s*#\s*\w*)?', text[i])
+        match = re.match('(\$?\w*):(\s*#\s*\w*)?', text[i])
         if match:
             TAGS[match.group(1)] = i-len(TAGS)-len(CONSTANTS)-whitelines
         elif text[i].strip() == '':
@@ -233,7 +233,7 @@ def asemble(text, asm_def):
         ins = line.split('#', 1)[0]
         if ins:
             ins = list(filter(None, re.split('[\s,]', ins)))
-            if re.match(r'(\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
+            if re.match(r'(\$?\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
                 continue
 
             elif ins[0] in asm_def:
