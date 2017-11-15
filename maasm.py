@@ -238,8 +238,8 @@ def asemble(text, asm_def):
 
             elif ins[0] in asm_def:
                 if len(ins) == (asm_def[ins[0]]['num'] + 1):
-
-                    # FIXME: Make length configurable
+                    if ins[0] in ['sw', 'lw']:
+                                ins[1], ins[2] = ins[2], ins[1]
                     bytecode_line = [
                         '{{0:0{}b}}'.format(
                             asm_def['_config']['opcode_len']
@@ -338,6 +338,7 @@ def main(filename, output, asm_dict, macros):
             ["{}'b".format(asm_tree['_config']['ins_len']), line]
         ) for line in bytecode
     ]
+
     output.write(ROM_TEMPLATE.render(
                 asm=bytecode,
                 addr_len=asm_tree['_config']['addr_len']-1,
