@@ -1,7 +1,7 @@
  #!/usr/bin/python3
 import re
+import collections
 from jinja2 import Template
-from collections import OrderedDict
 import click
 DEFAULT_INS = {
     'NOP': {
@@ -142,6 +142,15 @@ endmodule
 ''')
 
 
+def flatten(l):
+    for el in l:
+        if isinstance(el, collections.Iterable) and not isinstance(
+                                el, (str, bytes)):
+            yield from flatten(el)
+        else:
+            yield el
+
+
 def str2int(num):
             try:
                 return int(num)
@@ -174,30 +183,33 @@ def map_args(kind, length, arg=None):
             return '{{0:0{}b}}'.format(length).format(CONSTANTS[arg])
         elif re.match(r'\d', arg):
             return '{{0:0{}b}}'.format(length).format(str2int(arg))
+        elif re.match(r'-\d', arg):
+            s = bin(str2int(arg) & int("1"*length, 2))[2:]
+            return '{{0:0>{}}}'.format(length).format(s)
         else:
-            raise Exception('Undefined Symbol: {}').format(arg)
+            raise Exception('Undefined Symbol: {}'.format(arg))
 
     elif kind == 'reg':
         if arg in REGS:
             return '{{0:0{}b}}'.format(length).format(REGS[arg])
         else:
-            raise Exception('Malformed register expression {}'.fromat(arg))
+            raise Exception('Malformed register expression {}'.format(arg))
 
     else:
         raise Exception('Invaild type {}'.format(kind))
 
 
 def expand_macro(text, macros_dict):
-    expanded_text = list(text)
+    expanded_text = text
     for i in range(len(text)):
-        line = text[i].split(COMMENT_REGEX, 1)[0]
+        line = re.split(COMMENT_REGEX, text[i], 1)[0]
         if re.match(r'(\$?\w*):', line[0]) or re.match(r'\$?\w*=\d*', line[0]):
             continue
         else:
-            ins = line.split[',']
+            ins = list(filter(None, re.split('[\s,]', line)))
         if ins[0] in macros_dict:
             expanded_text[i] = macros_dict[ins[0]]['func'](ins[1:])
-    return [item for sublist in expanded_text[i] for item in sublist]
+    return list(flatten(expanded_text))
 
 
 def resolve_symbols(text):
@@ -232,14 +244,14 @@ def asemble(text, asm_def):
 
         ins = line.split('#', 1)[0]
         if ins:
-            ins = list(filter(None, re.split('(\s*)|(,\s*)', ins)))
+            ins = list(filter(None, re.split('[\s,]', ins)))
             if re.match(r'(\$?\w*):', ins[0]) or re.match(r'\w*=\d*', ins[0]):
                 continue
 
             elif ins[0] in asm_def:
                 if len(ins) == (asm_def[ins[0]]['num'] + 1):
                     if ins[0] in ['sw', 'lw']:
-                                ins[1], ins[2] = ins[2], ins[1]
+                        ins[2], ins[3] = ins[3], ins[2]
                     bytecode_line = [
                         '{{0:0{}b}}'.format(
                             asm_def['_config']['opcode_len']
@@ -263,6 +275,12 @@ def asemble(text, asm_def):
                                         index, line
                                     )
                                 ) from err
+                    if len(''.join(bytecode_line)) \
+                       != asm_def['_config']['ins_len']:
+                                raise Exception(
+                                            ('{}: Instruction has different '
+                                             'size than expected, '
+                                             'line {}').format(index, line))
                     bytecode.append(''.join(bytecode_line))
 
                 else:
@@ -323,10 +341,7 @@ def main(filename, output, asm_dict, macros):
 
     text = filename.read().decode('utf-8')
     text = re.sub(r'(?m)^\s*(#|\.).*\n?', '', text).splitlines()
-    clean_text = []
-    for line in text:
-        #clean_text.append(re.sub(r'^\s.|\s.$', '', line))
-        clean_text.append(line)
+    clean_text = text
     if macros:
         expanded_text = expand_macro(clean_text, macros_dict)
     else:
