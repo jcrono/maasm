@@ -181,11 +181,8 @@ def map_args(kind, length, arg=None):
             return '{{0:0{}b}}'.format(length).format(TAGS[arg])
         elif arg in CONSTANTS:
             return '{{0:0{}b}}'.format(length).format(CONSTANTS[arg])
-        elif re.match(r'\d', arg):
+        elif re.match(r'-?\d', arg):
             return '{{0:0{}b}}'.format(length).format(str2int(arg))
-        elif re.match(r'-\d', arg):
-            s = bin(str2int(arg) & int("1"*length, 2))[2:]
-            return '{{0:0>{}}}'.format(length).format(s)
         else:
             raise Exception('Undefined Symbol: {}'.format(arg))
 
