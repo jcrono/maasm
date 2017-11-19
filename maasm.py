@@ -61,7 +61,7 @@ module ROM(
      begin
 	case (iAddress)
           {% for i in range(asm|length) %}
-           {{i}}: oInstruction = {{asm[i]}};
+           {{i}}: oInstruction = {{asm[i]}}; // asm_ins[i]
           {% endfor %}
 	  default:
 	    oInstruction = { 4'b0010 ,  24'b10101010 };		//NOP
@@ -159,6 +159,7 @@ def resolve_symbols(text):
 
 def asemble(text, asm_def):
     bytecode = []
+    asm_ins = []
     for index, line in enumerate(text):
         if line == '':
             continue
@@ -170,6 +171,7 @@ def asemble(text, asm_def):
                 continue
 
             elif ins[0] in asm_def:
+                asm_def.append(' '.join(ins))
                 if len(ins) == (asm_def[ins[0]]['num'] + 1):
 
                     # FIXME: Make length configurable
@@ -209,7 +211,7 @@ def asemble(text, asm_def):
                     '{}: Invalid operation'
                     ' on instruction {}'.format(index, line)
                 )
-    return bytecode
+    return bytecode, asm_ins
 
 
 def generate_rom(text):
@@ -264,7 +266,7 @@ def main(filename, output, asm_dict, macros):
     else:
         expanded_text = clean_text
     resolve_symbols(expanded_text)
-    bytecode = asemble(expanded_text, asm_tree)
+    bytecode, asm_ins = asemble(expanded_text, asm_tree)
     bytecode = [
         ''.join(
             ["{}'b".format(asm_tree['_config']['ins_len']), line]
@@ -273,7 +275,8 @@ def main(filename, output, asm_dict, macros):
     output.write(ROM_TEMPLATE.render(
                 asm=bytecode,
                 addr_len=asm_tree['_config']['addr_len']-1,
-                ins_len=asm_tree['_config']['ins_len']-1
+                ins_len=asm_tree['_config']['ins_len']-1,
+                asm_ins=asm_ins
     ).encode('utf-8'))
 
 
